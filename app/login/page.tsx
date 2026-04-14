@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Role } from '@/types/database'
@@ -13,11 +13,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+
+  // Clear any browser-autofilled values on mount
+  useEffect(() => {
+    if (emailRef.current)    emailRef.current.value = ''
+    if (passwordRef.current) passwordRef.current.value = ''
+    setEmail('')
+    setPassword('')
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
+
+    // Clear any existing session first so stale cookies can't interfere
+    await supabase.auth.signOut()
 
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({ email, password })
@@ -88,7 +101,8 @@ export default function LoginPage() {
 
     const role = profile.role as Role
     const dest = role === 'host' ? '/dashboard/host' : role === 'admin' ? '/dashboard/admin' : '/dashboard/cleaner'
-    router.push(dest)
+    // Hard navigation so the browser sends fresh session cookies to the middleware
+    window.location.href = dest
   }
 
   return (
@@ -117,8 +131,9 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
+                ref={emailRef}
                 type="email"
-                autoComplete="email"
+                autoComplete="off"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -140,8 +155,9 @@ export default function LoginPage() {
               </label>
               <input
                 id="password"
+                ref={passwordRef}
                 type="password"
-                autoComplete="current-password"
+                autoComplete="off"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -216,6 +232,29 @@ export default function LoginPage() {
               <a href="/signup" className="font-medium text-blue-600 hover:underline">Sign up</a>
             </p>
           </form>
+
+          {/* Quick-fill for test accounts */}
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <p className="text-xs text-center text-gray-400 mb-3">Sign in as</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setEmail('antoniorazzano19@gmail.com'); setPassword('Vacay123!') }}
+                disabled={loading}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
+              >
+                🏠 Host
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('cleaner@vacay.test'); setPassword('Cleaner123!') }}
+                disabled={loading}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
+              >
+                🧹 Cleaner
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </main>

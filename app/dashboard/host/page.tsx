@@ -325,8 +325,24 @@ export default function HostDashboard() {
     setSubmitting(true)
     setFormError(null)
 
+    // Geocode the address via Nominatim (free, no key needed)
+    let latitude: number | null = null
+    let longitude: number | null = null
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.address.trim())}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'VacayApp/1.0' } }
+      )
+      const geoData = await geoRes.json()
+      if (geoData?.[0]) {
+        latitude  = parseFloat(geoData[0].lat)
+        longitude = parseFloat(geoData[0].lon)
+      }
+    } catch { /* geocoding is best-effort; don't block save */ }
+
     const { error } = await supabase.from('properties').insert({
       owner_id: userId, name: form.name.trim(), address: form.address.trim(),
+      latitude, longitude,
     })
 
     if (error) {
@@ -347,7 +363,7 @@ export default function HostDashboard() {
   async function handleLogout() {
     setLoggingOut(true)
     await supabase.auth.signOut()
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   // ── Content splits ──────────────────────────────────────────────────────────

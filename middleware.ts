@@ -40,4 +40,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: ['/dashboard/:path*'],
+  // /cleaner-login and /login are intentionally excluded — no auth needed
 }

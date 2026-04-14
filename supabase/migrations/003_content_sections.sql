@@ -2,14 +2,6 @@
 -- 003_content_sections.sql
 -- Creates the content_sections table used by host/cleaner
 -- dashboards and the admin content management tab.
---
--- Column notes (must match app code exactly):
---   is_active  boolean  — app filters with .eq('is_active', true)
---                         and toggles with { is_active: !item.is_active }
---   audience   text     — app queries .in('audience', ['host', 'all'])
---                         and .in('audience', ['cleaner', 'all'])
---                         so values are 'host' | 'cleaner' | 'all'
---   updated_at          — written by admin content tab on every save
 -- ============================================================
 
 create table public.content_sections (
@@ -19,8 +11,9 @@ create table public.content_sections (
   title       text        not null,
   body        text        not null,
   audience    text        not null
-                check (audience in ('host', 'cleaner', 'all')),
-  is_active   boolean     not null default false,
+                check (audience in ('hosts', 'cleaners', 'all')),
+  status      text        not null default 'draft'
+                check (status in ('draft', 'active')),
   created_by  uuid        references public.profiles (id) on delete set null,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -30,18 +23,19 @@ alter table public.content_sections enable row level security;
 
 -- ------------------------------------------------------------
 -- Authenticated users (hosts & cleaners) can read active rows
--- that are targeted at their role or at everyone.
--- The profile lookup resolves 'host'/'cleaner' from profiles.role.
+-- targeted at their role or at everyone.
+-- profiles.role is 'host'/'cleaner'; audience uses 'hosts'/'cleaners'
+-- so we append 's' to resolve the match.
 -- ------------------------------------------------------------
 create policy "content_sections: authenticated read"
   on public.content_sections for select
   using (
-    is_active = true
+    status = 'active'
     and (
       audience = 'all'
       or audience = (
-        select role from public.profiles
-        where id = auth.uid()
+        select p.role || 's' from public.profiles p
+        where p.id = auth.uid()
       )
     )
   );

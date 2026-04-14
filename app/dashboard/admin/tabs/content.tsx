@@ -13,9 +13,9 @@ const CONTENT_TYPES = [
 ]
 
 const AUDIENCE_OPTIONS = [
-  { value: 'host',    label: 'Hosts'    },
-  { value: 'cleaner', label: 'Cleaners' },
-  { value: 'all',     label: 'Everyone' },
+  { value: 'hosts',    label: 'Hosts'    },
+  { value: 'cleaners', label: 'Cleaners' },
+  { value: 'all',      label: 'Everyone' },
 ]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,8 +24,8 @@ interface ContentSection {
   type: 'announcement' | 'resource' | 'guideline'
   title: string
   body: string
-  is_active: boolean
-  audience: 'host' | 'cleaner' | 'all'
+  status: 'draft' | 'active'
+  audience: 'hosts' | 'cleaners' | 'all'
   created_by: string | null
   created_at: string
   updated_at: string
@@ -36,15 +36,15 @@ type FormState = {
   title: string
   body: string
   audience: string
-  is_active: boolean
+  status: string
 }
 
 const EMPTY_FORM: FormState = {
   type: 'announcement',
   title: '',
   body: '',
-  audience: 'host',
-  is_active: true,
+  audience: 'hosts',
+  status: 'active',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ export default function ContentTab() {
 
   function openEdit(item: ContentSection) {
     setEditingItem(item)
-    setForm({ type: item.type, title: item.title, body: item.body, audience: item.audience, is_active: item.is_active })
+    setForm({ type: item.type, title: item.title, body: item.body, audience: item.audience, status: item.status })
     setFormError(null)
     setFormOpen(true)
   }
@@ -104,7 +104,7 @@ export default function ContentTab() {
       title:      form.title.trim(),
       body:       form.body.trim(),
       audience:   form.audience,
-      is_active:  form.is_active,
+      status:     form.status,
       updated_at: new Date().toISOString(),
       ...(!editingItem ? { created_by: user?.id ?? null } : {}),
     }
@@ -124,7 +124,7 @@ export default function ContentTab() {
   async function handleToggleActive(item: ContentSection) {
     await supabase
       .from('content_sections')
-      .update({ is_active: !item.is_active, updated_at: new Date().toISOString() })
+      .update({ status: item.status === 'active' ? 'draft' : 'active', updated_at: new Date().toISOString() })
       .eq('id', item.id)
     fetchItems()
   }
@@ -206,10 +206,10 @@ export default function ContentTab() {
                           onClick={() => handleToggleActive(item)}
                           title="Click to toggle"
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition hover:opacity-80 ${
-                            item.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                            item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                           }`}
                         >
-                          {item.is_active ? 'Active' : 'Draft'}
+                          {item.status === 'active' ? 'Active' : 'Draft'}
                         </button>
                       </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(item.created_at)}</td>
@@ -313,8 +313,8 @@ export default function ContentTab() {
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={form.is_active}
-                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+                checked={form.status === 'active'}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.checked ? 'active' : 'draft' }))}
                 className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
               />
               <span className="text-sm font-medium text-gray-700">Publish immediately</span>

@@ -45,7 +45,8 @@ export default function LoginPage() {
     }
 
     const role = profile.role as Role
-    router.push(role === 'host' ? '/dashboard/host' : '/dashboard/cleaner')
+    const dest = role === 'host' ? '/dashboard/host' : role === 'admin' ? '/dashboard/admin' : '/dashboard/cleaner'
+    router.push(dest)
   }
 
   return (

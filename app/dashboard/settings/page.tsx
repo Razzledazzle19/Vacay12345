@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/Toast'
 
 // ─── Settings Page ────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const router = useRouter()
+  const toast  = useToast()
 
   const [userId, setUserId]           = useState<string | null>(null)
   const [userRole, setUserRole]       = useState<string | null>(null)
@@ -72,8 +74,10 @@ export default function SettingsPage() {
 
     if (error) {
       setProfileError(error.message)
+      toast(error.message, 'error')
     } else {
       setProfileSuccess(true)
+      toast('Profile updated successfully.', 'success')
       setTimeout(() => setProfileSuccess(false), 3000)
     }
     setProfileSaving(false)
@@ -99,8 +103,10 @@ export default function SettingsPage() {
 
     if (error) {
       setPasswordError(error.message)
+      toast(error.message, 'error')
     } else {
       setPasswordSuccess(true)
+      toast('Password updated successfully.', 'success')
       setNewPassword('')
       setConfirmPassword('')
       setTimeout(() => setPasswordSuccess(false), 3000)

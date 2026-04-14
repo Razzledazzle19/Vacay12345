@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Role } from '@/types/database'
+import { useToast } from '@/components/Toast'
 
 export default function SignupPage() {
   const router = useRouter()
+  const toast  = useToast()
   const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'host' as Role })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -22,7 +24,9 @@ export default function SignupPage() {
     })
 
     if (authError || !authData.user) {
-      setError(authError?.message ?? 'Could not create account.')
+      const msg = authError?.message ?? 'Could not create account.'
+      setError(msg)
+      toast(msg, 'error')
       setLoading(false)
       return
     }
@@ -35,6 +39,7 @@ export default function SignupPage() {
       })
       if (signInError) {
         setError(signInError.message)
+        toast(signInError.message, 'error')
         setLoading(false)
         return
       }
@@ -48,6 +53,7 @@ export default function SignupPage() {
 
     if (profileError) {
       setError(profileError.message)
+      toast(profileError.message, 'error')
       setLoading(false)
       return
     }

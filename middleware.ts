@@ -18,22 +18,22 @@ export async function middleware(request: NextRequest) {
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const role = profile?.role
 
-  // Role-based route enforcement
-  if (pathname.startsWith('/dashboard/host') && role !== 'host') {
-    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
-  }
+  // If no profile yet (e.g. just confirmed email), let login page handle it
+  if (!role) return NextResponse.redirect(new URL('/login', request.url))
 
-  if (pathname.startsWith('/dashboard/cleaner') && role !== 'cleaner') {
-    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
-  }
+  const roleDest =
+    role === 'host'    ? '/dashboard/host' :
+    role === 'admin'   ? '/dashboard/admin' :
+                         '/dashboard/cleaner'
 
-  if (pathname.startsWith('/dashboard/admin') && role !== 'admin') {
-    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
-  }
+  // Role-based route enforcement — send to the correct dashboard
+  if (pathname.startsWith('/dashboard/host')    && role !== 'host')    return NextResponse.redirect(new URL(roleDest, request.url))
+  if (pathname.startsWith('/dashboard/cleaner') && role !== 'cleaner') return NextResponse.redirect(new URL(roleDest, request.url))
+  if (pathname.startsWith('/dashboard/admin')   && role !== 'admin')   return NextResponse.redirect(new URL(roleDest, request.url))
 
   return response
 }

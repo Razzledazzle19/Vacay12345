@@ -125,6 +125,8 @@ export default function CleanerDashboard() {
   const [timedOut, setTimedOut]               = useState(false)
   const [fetchError, setFetchError]           = useState<string | null>(null)
   const [updatingJobId, setUpdatingJobId]     = useState<string | null>(null)
+  const [acceptingJobId, setAcceptingJobId]   = useState<string | null>(null)
+  const [decliningJobId, setDecliningJobId]   = useState<string | null>(null)
   const [loggingOut, setLoggingOut]           = useState(false)
   const [activeFilter, setActiveFilter]       = useState<'upcoming' | 'all'>('upcoming')
 
@@ -264,6 +266,38 @@ export default function CleanerDashboard() {
     }
   }
 
+  // ── Accept job request ──────────────────────────────────────────────────────
+  async function handleAccept(job: JobWithProperty) {
+    setAcceptingJobId(job.id)
+    const { error } = await supabase
+      .from('jobs')
+      .update({ acceptance_status: 'accepted', status: 'pending' })
+      .eq('id', job.id)
+
+    if (error) console.error('Accept error:', error.message)
+    setAcceptingJobId(null)
+    if (userId) {
+      fetchJobs(userId)
+      fetchStats(userId)
+    }
+  }
+
+  // ── Decline job request ─────────────────────────────────────────────────────
+  async function handleDecline(job: JobWithProperty) {
+    setDecliningJobId(job.id)
+    const { error } = await supabase
+      .from('jobs')
+      .update({ acceptance_status: 'declined', cleaner_id: null })
+      .eq('id', job.id)
+
+    if (error) console.error('Decline error:', error.message)
+    setDecliningJobId(null)
+    if (userId) {
+      fetchJobs(userId)
+      fetchStats(userId)
+    }
+  }
+
   // ── Logout ──────────────────────────────────────────────────────────────────
   async function handleLogout() {
     setLoggingOut(true)
@@ -276,11 +310,15 @@ export default function CleanerDashboard() {
   const guidelines    = contentSections.filter((c) => c.type === 'guideline')
   const resources     = contentSections.filter((c) => c.type === 'resource')
 
-  // ── Filter jobs ─────────────────────────────────────────────────────────────
+  // ── Split new requests from active jobs ─────────────────────────────────────
+  const pendingRequests = jobs.filter((j) => j.acceptance_status === 'pending_acceptance')
+  const activeJobs      = jobs.filter((j) => j.acceptance_status !== 'pending_acceptance')
+
+  // ── Filter active jobs ───────────────────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0]
   const filteredJobs = activeFilter === 'upcoming'
-    ? jobs.filter((j) => j.status !== 'completed' || j.scheduled_date >= today)
-    : jobs
+    ? activeJobs.filter((j) => j.status !== 'completed' || j.scheduled_date >= today)
+    : activeJobs
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -321,6 +359,69 @@ export default function CleanerDashboard() {
                 <p className={`text-2xl font-bold mt-1 ${stat.color}`}>
                   {stats[i] ?? '—'}
                 </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── New Requests ─────────────────────────────────────────────────── */}
+        {pendingRequests.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-gray-900">New requests</h2>
+              <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-teal-600 text-xs font-bold text-white">
+                {pendingRequests.length}
+              </span>
+            </div>
+            {pendingRequests.map((job) => (
+              <div key={job.id} className="bg-white rounded-2xl border-2 border-teal-300 ring-1 ring-teal-100 shadow-sm p-5 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-0.5">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate">
+                      {job.property?.name ?? 'Unknown property'}
+                    </h3>
+                    {job.property?.address && (
+                      <p className="text-sm text-gray-500 flex items-center gap-1">
+                        <svg className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 15.23 17 12.977 17 10c0-3.866-3.134-7-7-7S3 6.134 3 10c0 2.977 1.698 5.23 3.354 6.585.83.799 1.654 1.38 2.274 1.764a9.24 9.24 0 00.757.434 5.74 5.74 0 00.282.14l.018.008.006.003zM10 11.25a1.25 1.25 0 100-2.5 1.25 1.25 0 000 2.5z" clipRule="evenodd" />
+                        </svg>
+                        {job.property.address}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      <span className="text-gray-400">Date:</span>{' '}
+                      <span className="font-medium">{formatDate(job.scheduled_date)}</span>
+                    </p>
+                    {job.notes && (
+                      <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mt-1">
+                        📝 {job.notes}
+                      </p>
+                    )}
+                  </div>
+                  <span className="flex-shrink-0 inline-flex items-center rounded-full bg-teal-50 border border-teal-200 px-3 py-1 text-xs font-semibold text-teal-700">
+                    New
+                  </span>
+                </div>
+                <div className="flex gap-2 justify-end pt-1 border-t border-gray-100">
+                  <button
+                    onClick={() => handleDecline(job)}
+                    disabled={decliningJobId === job.id || acceptingJobId === job.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  >
+                    {decliningJobId === job.id ? (
+                      <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>Declining…</>
+                    ) : 'Decline'}
+                  </button>
+                  <button
+                    onClick={() => handleAccept(job)}
+                    disabled={acceptingJobId === job.id || decliningJobId === job.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  >
+                    {acceptingJobId === job.id ? (
+                      <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>Accepting…</>
+                    ) : 'Accept'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

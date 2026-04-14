@@ -16,12 +16,14 @@ export interface Property {
 }
 
 export type JobStatus = 'pending' | 'in_progress' | 'completed'
+export type JobAcceptanceStatus = 'pending_acceptance' | 'accepted' | 'declined'
 
 export interface Job {
   id: string
   property_id: string
   cleaner_id: string | null
   status: JobStatus
+  acceptance_status: JobAcceptanceStatus
   scheduled_date: string
   notes: string | null
   created_at: string

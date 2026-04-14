@@ -17,6 +17,24 @@ interface PropertyWithJobs extends Property {
   jobs: Job[]
   pendingJobs: number
 }
+interface Subscription {
+  id: string
+  plan: 'starter' | 'pro' | 'enterprise'
+  status: 'active' | 'cancelled' | 'past_due'
+}
+interface SupplyOrder {
+  id: string
+  property_id: string
+  status: 'pending' | 'confirmed' | 'delivered' | 'cancelled'
+  scheduled_date: string
+  notes: string | null
+}
+interface SupplyItem {
+  id: string
+  name: string
+  category: string
+  unit: string
+}
 
 // ─── Stats config ─────────────────────────────────────────────────────────────
 // Adding a new stat = add one object here. Nothing else changes.
@@ -117,6 +135,13 @@ export default function HostDashboard() {
   const [submitting, setSubmitting]           = useState(false)
   const [formError, setFormError]             = useState<string | null>(null)
   const [loggingOut, setLoggingOut]           = useState(false)
+  const [subscription, setSubscription]       = useState<Subscription | null>(null)
+  const [supplyOrders, setSupplyOrders]       = useState<SupplyOrder[]>([])
+  const [supplyItems, setSupplyItems]         = useState<SupplyItem[]>([])
+  const [showSupplyForm, setShowSupplyForm]   = useState<string | null>(null) // property id
+  const [supplyForm, setSupplyForm]           = useState({ scheduled_date: '', notes: '' })
+  const [supplySubmitting, setSupplySubmitting] = useState(false)
+  const [supplyError, setSupplyError]         = useState<string | null>(null)
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -215,6 +240,39 @@ export default function HostDashboard() {
     } catch (err) { console.error('Content fetch error:', err) }
   }
 
+  async function fetchSupplies(uid: string) {
+    try {
+      const [{ data: sub }, { data: orders }, { data: items }] = await Promise.all([
+        supabase.from('subscriptions').select('id, plan, status').eq('host_id', uid).maybeSingle(),
+        supabase.from('supply_orders').select('id, property_id, status, scheduled_date, notes')
+          .eq('host_id', uid).order('scheduled_date', { ascending: false }).limit(20),
+        supabase.from('supply_items').select('id, name, category, unit').eq('is_active', true),
+      ])
+      setSubscription(sub as Subscription | null)
+      setSupplyOrders((orders ?? []) as SupplyOrder[])
+      setSupplyItems((items ?? []) as SupplyItem[])
+    } catch (err) { console.error('Supplies fetch error:', err) }
+  }
+
+  async function handleRequestSupplies(e: React.FormEvent, propertyId: string) {
+    e.preventDefault()
+    if (!userId) return
+    setSupplySubmitting(true)
+    setSupplyError(null)
+    const { error } = await supabase.from('supply_orders').insert({
+      property_id:    propertyId,
+      host_id:        userId,
+      scheduled_date: supplyForm.scheduled_date,
+      notes:          supplyForm.notes.trim() || null,
+      status:         'pending',
+    })
+    if (error) { setSupplyError(error.message); setSupplySubmitting(false); return }
+    setSupplyForm({ scheduled_date: '', notes: '' })
+    setShowSupplyForm(null)
+    setSupplySubmitting(false)
+    fetchSupplies(userId)
+  }
+
   // ── Trigger fetches once userId is known ────────────────────────────────────
   useEffect(() => {
     if (!userId) return
@@ -222,6 +280,7 @@ export default function HostDashboard() {
     fetchStats(userId)
     fetchCleaners()
     fetchContent()
+    fetchSupplies(userId)
   }, [userId])
 
   // ── Realtime subscriptions ──────────────────────────────────────────────────
@@ -400,6 +459,144 @@ export default function HostDashboard() {
             )}
           </div>
         )}
+
+        {/* ── Supplies section ─────────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Supplies</h2>
+                <p className="text-xs text-gray-500">Toilet paper, towels, paper towels &amp; more</p>
+              </div>
+            </div>
+            {subscription ? (
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                subscription.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
+                subscription.plan === 'pro'        ? 'bg-indigo-100 text-indigo-700' :
+                                                     'bg-gray-100 text-gray-600'
+              }`}>
+                {subscription.plan} plan
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700">
+                No subscription
+              </span>
+            )}
+          </div>
+
+          {/* Supply items catalog */}
+          {supplyItems.length > 0 && (
+            <div className="px-6 py-4 border-b border-gray-100">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Available supplies</p>
+              <div className="flex flex-wrap gap-2">
+                {supplyItems.map((item) => (
+                  <span key={item.id} className="inline-flex items-center rounded-full bg-teal-50 border border-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
+                    {item.name}
+                    <span className="ml-1.5 text-teal-400">/ {item.unit}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Request restock per property */}
+          {properties.length > 0 && (
+            <div className="px-6 py-4 border-b border-gray-100">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Request a restock</p>
+              <div className="space-y-3">
+                {properties.map((prop) => (
+                  <div key={prop.id}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-800">{prop.name}</span>
+                      <button
+                        onClick={() => {
+                          setShowSupplyForm(showSupplyForm === prop.id ? null : prop.id)
+                          setSupplyForm({ scheduled_date: '', notes: '' })
+                          setSupplyError(null)
+                        }}
+                        className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition"
+                      >
+                        {showSupplyForm === prop.id ? 'Cancel' : '+ Request restock'}
+                      </button>
+                    </div>
+                    {showSupplyForm === prop.id && (
+                      <form onSubmit={(e) => handleRequestSupplies(e, prop.id)} className="mt-3 space-y-3 border border-teal-100 rounded-xl p-4 bg-teal-50/50">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Delivery date <span className="text-red-500">*</span></label>
+                            <input
+                              type="date" required value={supplyForm.scheduled_date}
+                              onChange={(e) => setSupplyForm((f) => ({ ...f, scheduled_date: e.target.value }))}
+                              disabled={supplySubmitting}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                            <input
+                              type="text" value={supplyForm.notes}
+                              onChange={(e) => setSupplyForm((f) => ({ ...f, notes: e.target.value }))}
+                              disabled={supplySubmitting} placeholder="e.g. extra towels needed"
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                            />
+                          </div>
+                        </div>
+                        {supplyError && <p className="text-xs text-red-600">{supplyError}</p>}
+                        <div className="flex justify-end">
+                          <button
+                            type="submit" disabled={supplySubmitting || !supplyForm.scheduled_date}
+                            className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                          >
+                            {supplySubmitting ? 'Submitting…' : 'Submit request'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent supply orders */}
+          {supplyOrders.length > 0 ? (
+            <div className="px-6 py-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Recent orders</p>
+              <div className="space-y-2">
+                {supplyOrders.slice(0, 5).map((order) => {
+                  const prop = properties.find((p) => p.id === order.property_id)
+                  const statusStyle: Record<string, string> = {
+                    pending:   'bg-amber-100 text-amber-700',
+                    confirmed: 'bg-blue-100 text-blue-700',
+                    delivered: 'bg-green-100 text-green-700',
+                    cancelled: 'bg-gray-100 text-gray-500',
+                  }
+                  return (
+                    <div key={order.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <span className="font-medium text-gray-800">{prop?.name ?? 'Property'}</span>
+                        <span className="text-gray-400 ml-2">{formatShortDate(order.scheduled_date)}</span>
+                        {order.notes && <span className="text-gray-400 ml-2 text-xs">· {order.notes}</span>}
+                      </div>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusStyle[order.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                        {order.status}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="px-6 py-6 text-center text-sm text-gray-400">
+              No supply orders yet — request a restock above.
+            </div>
+          )}
+        </div>
 
         {/* ── Property grid ─────────────────────────────────────────────────── */}
         {loading && !timedOut ? (

@@ -117,6 +117,12 @@ const STATUS_META: Record<string, { label: string; style: string; dot: string }>
   completed:   { label: 'Completed',   style: 'bg-green-100 text-green-800', dot: 'bg-green-500' },
 }
 
+const ACCEPTANCE_META: Record<string, { label: string; style: string }> = {
+  pending_acceptance: { label: 'Awaiting response', style: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
+  accepted:           { label: 'Cleaner accepted',  style: 'bg-green-50  text-green-700  border border-green-200'  },
+  declined:           { label: 'Cleaner declined',  style: 'bg-red-50    text-red-700    border border-red-200'    },
+}
+
 // ─── Host Dashboard ───────────────────────────────────────────────────────────
 export default function HostDashboard() {
   const router = useRouter()
@@ -730,9 +736,16 @@ function PropertyCard({
 
         {/* Next clean info */}
         {nextJob ? (
-          <div className="text-sm text-gray-600 space-y-0.5">
+          <div className="text-sm text-gray-600 space-y-1">
             <p><span className="text-gray-400">Next clean:</span> {formatShortDate(nextJob.scheduled_date)}</p>
-            <p><span className="text-gray-400">Cleaner:</span> {cleanerName ?? <span className="italic text-gray-400">Unassigned</span>}</p>
+            <p><span className="text-gray-400">Cleaner:</span>{' '}
+              {cleanerName ?? <span className="italic text-gray-400">Unassigned</span>}
+            </p>
+            {nextJob.cleaner_id && ACCEPTANCE_META[nextJob.acceptance_status] && (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ACCEPTANCE_META[nextJob.acceptance_status].style}`}>
+                {ACCEPTANCE_META[nextJob.acceptance_status].label}
+              </span>
+            )}
           </div>
         ) : (
           <p className="text-sm italic text-gray-400">No clean scheduled</p>
@@ -819,11 +832,18 @@ function PropertyCard({
             .slice()
             .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime())
             .map((job) => (
-              <div key={job.id} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">{formatShortDate(job.scheduled_date)}</span>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_META[job.status]?.style ?? 'bg-gray-100 text-gray-500'}`}>
-                  {STATUS_META[job.status]?.label ?? job.status}
-                </span>
+              <div key={job.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-gray-700 flex-shrink-0">{formatShortDate(job.scheduled_date)}</span>
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  {job.cleaner_id && ACCEPTANCE_META[job.acceptance_status] && (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ACCEPTANCE_META[job.acceptance_status].style}`}>
+                      {ACCEPTANCE_META[job.acceptance_status].label}
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_META[job.status]?.style ?? 'bg-gray-100 text-gray-500'}`}>
+                    {STATUS_META[job.status]?.label ?? job.status}
+                  </span>
+                </div>
               </div>
             ))}
         </div>

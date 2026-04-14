@@ -170,8 +170,8 @@ export default function CleanerDashboard() {
     try {
       const results = await Promise.all(CLEANER_STATS.map((s) => s.fetch(supabase, uid)))
       setStats(results)
-    } catch (err) {
-      console.error('Stats fetch error:', err)
+    } catch {
+      // stats are non-critical; silently ignore
     }
   }
 
@@ -204,7 +204,6 @@ export default function CleanerDashboard() {
       setFetchError(null)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load jobs'
-      console.error('Jobs fetch error:', msg)
       setFetchError(msg)
     } finally {
       setLoading(false)
@@ -221,9 +220,7 @@ export default function CleanerDashboard() {
         .in('audience', ['cleaners', 'all'])
         .order('created_at', { ascending: false })
       setContentSections((data as ContentSection[]) ?? [])
-    } catch (err) {
-      console.error('Content fetch error:', err)
-    }
+    } catch { /* content is non-critical */ }
   }
 
   // ── Trigger fetches once userId is known ────────────────────────────────────
@@ -261,7 +258,6 @@ export default function CleanerDashboard() {
       .eq('id', job.id)
 
     if (error) {
-      console.error('Status update error:', error.message)
       toast(error.message, 'error')
     } else {
       const label = newStatus === 'in_progress' ? 'Job started' : 'Job marked as done'
@@ -283,7 +279,6 @@ export default function CleanerDashboard() {
       .eq('id', job.id)
 
     if (error) {
-      console.error('Accept error:', error.message)
       toast(error.message, 'error')
     } else {
       toast('Job accepted — it\'s on your schedule!', 'success')
@@ -304,7 +299,6 @@ export default function CleanerDashboard() {
       .eq('id', job.id)
 
     if (error) {
-      console.error('Decline error:', error.message)
       toast(error.message, 'error')
     } else {
       toast('Job declined and returned to the host.', 'warning')

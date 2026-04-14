@@ -188,8 +188,8 @@ export default function HostDashboard() {
     try {
       const results = await Promise.all(HOST_STATS.map((s) => s.fetch(supabase, uid)))
       setStats(results)
-    } catch (err) {
-      console.error('Stats fetch error:', err)
+    } catch {
+      // stats are non-critical; silently ignore
     }
   }
 
@@ -222,7 +222,6 @@ export default function HostDashboard() {
       setFetchError(null)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load properties'
-      console.error('Properties fetch error:', msg)
       setFetchError(msg)
     } finally {
       setLoading(false)
@@ -235,7 +234,7 @@ export default function HostDashboard() {
       const { data } = await supabase
         .from('profiles').select('id, full_name').eq('role', 'cleaner').order('full_name')
       if (data) setCleaners(data)
-    } catch (err) { console.error('Cleaners fetch error:', err) }
+    } catch { /* cleaners list is non-critical */ }
   }
 
   async function fetchContent() {
@@ -245,7 +244,7 @@ export default function HostDashboard() {
         .eq('status', 'active').in('audience', ['hosts', 'all'])
         .order('created_at', { ascending: false })
       setContentSections((data as ContentSection[]) ?? [])
-    } catch (err) { console.error('Content fetch error:', err) }
+    } catch { /* content is non-critical */ }
   }
 
   async function fetchSupplies(uid: string) {
@@ -259,7 +258,7 @@ export default function HostDashboard() {
       setSubscription(sub as Subscription | null)
       setSupplyOrders((orders ?? []) as SupplyOrder[])
       setSupplyItems((items ?? []) as SupplyItem[])
-    } catch (err) { console.error('Supplies fetch error:', err) }
+    } catch { /* supplies section non-critical */ }
   }
 
   async function handleRequestSupplies(e: React.FormEvent, propertyId: string) {

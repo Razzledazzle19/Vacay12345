@@ -30,13 +30,47 @@ export default function LoginPage() {
       return
     }
 
-    const { data: profile, error: profileError } = await supabase
+    let { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', authData.user.id)
       .single()
 
+    // First login after email confirmation — profile doesn't exist yet.
+    // Create it now using the metadata saved during signup.
     if (profileError || !profile) {
+      const meta      = authData.user.user_metadata ?? {}
+      const full_name = (meta.full_name as string | undefined) ?? ''
+      const role      = (meta.role      as Role    | undefined) ?? 'host'
+
+      if (!full_name) {
+        const msg = 'Could not load your profile. Please contact support.'
+        setError(msg)
+        toast(msg, 'error')
+        setLoading(false)
+        return
+      }
+
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({ id: authData.user.id, full_name, role })
+
+      if (insertError) {
+        const msg = insertError.message
+        setError(msg)
+        toast(msg, 'error')
+        setLoading(false)
+        return
+      }
+
+      // Re-fetch so we have the final profile
+      const { data: newProfile } = await supabase
+        .from('profiles').select('role').eq('id', authData.user.id).single()
+      profile      = newProfile
+      profileError = null
+    }
+
+    if (!profile) {
       const msg = 'Could not load your profile. Please contact support.'
       setError(msg)
       toast(msg, 'error')

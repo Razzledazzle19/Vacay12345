@@ -20,7 +20,7 @@ type MyRowType = {
 
 // STEP 2: (Optional) Add stat cards.
 // Delete this block entirely if you don't need stats on this tab.
-const STAT_CARDS: {
+const _STAT_CARDS: {
   label: string
   color: string
   fetch: (sb: SupabaseClient) => Promise<number>

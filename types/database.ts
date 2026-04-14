@@ -12,6 +12,8 @@ export interface Property {
   owner_id: string
   name: string
   address: string
+  latitude:  number | null
+  longitude: number | null
   created_at: string
 }
 

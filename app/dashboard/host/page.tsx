@@ -11,7 +11,7 @@ interface Cleaner       { id: string; full_name: string }
 interface ContentSection {
   id: string
   type: 'announcement' | 'resource' | 'guideline'
-  title: string; body: string; is_active: boolean; audience: string
+  title: string; body: string; status: 'draft' | 'active'; audience: string
 }
 interface PropertyWithJobs extends Property {
   jobs: Job[]
@@ -208,8 +208,8 @@ export default function HostDashboard() {
   async function fetchContent() {
     try {
       const { data } = await supabase
-        .from('content_sections').select('id, type, title, body, is_active, audience')
-        .eq('is_active', true).in('audience', ['host', 'all'])
+        .from('content_sections').select('id, type, title, body, status, audience')
+        .eq('status', 'active').in('audience', ['hosts', 'all'])
         .order('created_at', { ascending: false })
       setContentSections((data as ContentSection[]) ?? [])
     } catch (err) { console.error('Content fetch error:', err) }

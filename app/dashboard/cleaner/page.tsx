@@ -12,7 +12,7 @@ interface ContentSection {
   type: 'announcement' | 'resource' | 'guideline'
   title: string
   body: string
-  is_active: boolean
+  status: 'draft' | 'active'
   audience: string
 }
 
@@ -212,9 +212,9 @@ export default function CleanerDashboard() {
     try {
       const { data } = await supabase
         .from('content_sections')
-        .select('id, type, title, body, is_active, audience')
-        .eq('is_active', true)
-        .in('audience', ['cleaner', 'all'])
+        .select('id, type, title, body, status, audience')
+        .eq('status', 'active')
+        .in('audience', ['cleaners', 'all'])
         .order('created_at', { ascending: false })
       setContentSections((data as ContentSection[]) ?? [])
     } catch (err) {

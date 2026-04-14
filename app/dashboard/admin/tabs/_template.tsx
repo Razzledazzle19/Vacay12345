@@ -20,6 +20,7 @@ type MyRowType = {
 
 // STEP 2: (Optional) Add stat cards.
 // Delete this block entirely if you don't need stats on this tab.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _STAT_CARDS: {
   label: string
   color: string

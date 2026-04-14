@@ -30,21 +30,31 @@ export default function LoginPage() {
       return
     }
 
+    // maybeSingle() returns null (no error) when 0 rows found,
+    // only errors on a real DB problem.
     let { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', authData.user.id)
-      .single()
+      .maybeSingle()
 
-    // First login after email confirmation — profile doesn't exist yet.
-    // Create it now using the metadata saved during signup.
-    if (profileError || !profile) {
+    if (profileError) {
+      const msg = 'Could not load your profile. Please contact support.'
+      setError(msg)
+      toast(msg, 'error')
+      setLoading(false)
+      return
+    }
+
+    // First login after email confirmation — profile not yet created.
+    // Build it now from the metadata saved during signup.
+    if (!profile) {
       const meta      = authData.user.user_metadata ?? {}
       const full_name = (meta.full_name as string | undefined) ?? ''
       const role      = (meta.role      as Role    | undefined) ?? 'host'
 
       if (!full_name) {
-        const msg = 'Could not load your profile. Please contact support.'
+        const msg = 'Account setup incomplete. Please sign up again.'
         setError(msg)
         toast(msg, 'error')
         setLoading(false)
@@ -63,11 +73,9 @@ export default function LoginPage() {
         return
       }
 
-      // Re-fetch so we have the final profile
       const { data: newProfile } = await supabase
-        .from('profiles').select('role').eq('id', authData.user.id).single()
-      profile      = newProfile
-      profileError = null
+        .from('profiles').select('role').eq('id', authData.user.id).maybeSingle()
+      profile = newProfile
     }
 
     if (!profile) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Job, Property } from '@/types/database'
+import { useToast } from '@/components/Toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ContentSection {
@@ -115,6 +116,7 @@ function isFuture(dateStr: string) {
 // ─── Cleaner Dashboard ────────────────────────────────────────────────────────
 export default function CleanerDashboard() {
   const router = useRouter()
+  const toast  = useToast()
 
   const [userId, setUserId]                   = useState<string | null>(null)
   const [cleanerName, setCleanerName]         = useState('')
@@ -258,7 +260,13 @@ export default function CleanerDashboard() {
       .update({ status: newStatus })
       .eq('id', job.id)
 
-    if (error) console.error('Status update error:', error.message)
+    if (error) {
+      console.error('Status update error:', error.message)
+      toast(error.message, 'error')
+    } else {
+      const label = newStatus === 'in_progress' ? 'Job started' : 'Job marked as done'
+      toast(label, 'success')
+    }
     setUpdatingJobId(null)
     if (userId) {
       fetchJobs(userId)
@@ -274,7 +282,12 @@ export default function CleanerDashboard() {
       .update({ acceptance_status: 'accepted', status: 'pending' })
       .eq('id', job.id)
 
-    if (error) console.error('Accept error:', error.message)
+    if (error) {
+      console.error('Accept error:', error.message)
+      toast(error.message, 'error')
+    } else {
+      toast('Job accepted — it\'s on your schedule!', 'success')
+    }
     setAcceptingJobId(null)
     if (userId) {
       fetchJobs(userId)
@@ -290,7 +303,12 @@ export default function CleanerDashboard() {
       .update({ acceptance_status: 'declined', cleaner_id: null })
       .eq('id', job.id)
 
-    if (error) console.error('Decline error:', error.message)
+    if (error) {
+      console.error('Decline error:', error.message)
+      toast(error.message, 'error')
+    } else {
+      toast('Job declined and returned to the host.', 'warning')
+    }
     setDecliningJobId(null)
     if (userId) {
       fetchJobs(userId)

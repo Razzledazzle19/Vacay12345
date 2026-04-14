@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Property, Job } from '@/types/database'
+import { useToast } from '@/components/Toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cleaner       { id: string; full_name: string }
@@ -126,6 +127,7 @@ const ACCEPTANCE_META: Record<string, { label: string; style: string }> = {
 // ─── Host Dashboard ───────────────────────────────────────────────────────────
 export default function HostDashboard() {
   const router = useRouter()
+  const toast  = useToast()
 
   const [userId, setUserId]                   = useState<string | null>(null)
   const [hostName, setHostName]               = useState('')
@@ -272,7 +274,13 @@ export default function HostDashboard() {
       notes:          supplyForm.notes.trim() || null,
       status:         'pending',
     })
-    if (error) { setSupplyError(error.message); setSupplySubmitting(false); return }
+    if (error) {
+      setSupplyError(error.message)
+      toast(error.message, 'error')
+      setSupplySubmitting(false)
+      return
+    }
+    toast('Supply restock requested!', 'success')
     setSupplyForm({ scheduled_date: '', notes: '' })
     setShowSupplyForm(null)
     setSupplySubmitting(false)
@@ -322,7 +330,13 @@ export default function HostDashboard() {
       owner_id: userId, name: form.name.trim(), address: form.address.trim(),
     })
 
-    if (error) { setFormError(error.message); setSubmitting(false); return }
+    if (error) {
+      setFormError(error.message)
+      toast(error.message, 'error')
+      setSubmitting(false)
+      return
+    }
+    toast('Property added successfully!', 'success')
     setForm(emptyPropertyForm)
     setShowForm(false)
     setSubmitting(false)
@@ -689,6 +703,7 @@ function PropertyCard({
   cleaners: Cleaner[]
   onJobCreated: () => void
 }) {
+  const toast = useToast()
   const [showJobForm, setShowJobForm] = useState(false)
   const [jobForm, setJobForm]         = useState(emptyJobForm)
   const [submitting, setSubmitting]   = useState(false)
@@ -722,7 +737,13 @@ function PropertyCard({
       status:         'pending',
     })
 
-    if (error) { setJobError(error.message); setSubmitting(false); return }
+    if (error) {
+      setJobError(error.message)
+      toast(error.message, 'error')
+      setSubmitting(false)
+      return
+    }
+    toast('Job scheduled!', 'success')
     setJobForm(emptyJobForm)
     setShowJobForm(false)
     setSubmitting(false)

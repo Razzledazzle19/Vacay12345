@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Role } from '@/types/database'
+import { useToast } from '@/components/Toast'
 
 export default function LoginPage() {
   const router = useRouter()
+  const toast  = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +23,9 @@ export default function LoginPage() {
       await supabase.auth.signInWithPassword({ email, password })
 
     if (authError || !authData.user) {
-      setError(authError?.message ?? 'Invalid credentials. Please try again.')
+      const msg = authError?.message ?? 'Invalid credentials. Please try again.'
+      setError(msg)
+      toast(msg, 'error')
       setLoading(false)
       return
     }
@@ -33,7 +37,9 @@ export default function LoginPage() {
       .single()
 
     if (profileError || !profile) {
-      setError('Could not load your profile. Please contact support.')
+      const msg = 'Could not load your profile. Please contact support.'
+      setError(msg)
+      toast(msg, 'error')
       setLoading(false)
       return
     }
